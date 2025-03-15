@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "720691763699",
+    "project_id": "smartnurse-9202b",
+    "storage_bucket": "smartnurse-9202b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:720691763699:android:091d447a3b15e46c761a86",
+        "android_client_info": {
+          "package_name": "com.example.smartnurse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5WwWYjEPrvAwz51C2DGcBS7i09SpSXB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

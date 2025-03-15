@@ -1,0 +1,246 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/patient_model.dart';
+import '../models/vitals_model.dart';
+import '../models/task_model.dart';
+import '../models/medication_model.dart';
+import '../widgets/vitals_list_item.dart';
+import '../widgets/task_list_item.dart';
+import '../widgets/medication_list_item.dart';
+
+class PatientDetailsScreen extends StatelessWidget {
+  final String patientId;
+
+  const PatientDetailsScreen({super.key, required this.patientId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Patient Details'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Fetch and display patient details
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('patients')
+                  .doc(patientId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return Center(child: Text('Patient not found'));
+                }
+
+                // Convert Firestore document to Patient object
+                final patient = Patient.fromMap(
+                  snapshot.data!.data() as Map<String, dynamic>,
+                  snapshot.data!.id,
+                );
+
+                return Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          patient.name,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text('Room: ${patient.roomNumber}'),
+                        Text('Status: ${patient.status}'),
+                        Text('Notes: ${patient.notes}'),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 24),
+
+            // Fetch and display vitals
+            Text(
+              'Vitals',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
+            _buildVitalsList(patientId),
+
+            const SizedBox(height: 24),
+
+            // Fetch and display tasks
+            Text(
+              'Tasks',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
+            _buildTasksList(patientId),
+
+            const SizedBox(height: 24),
+
+            // Fetch and display medications
+            Text(
+              'Medications',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
+            _buildMedicationList(patientId),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Fetch and display vitals for the patient
+  Widget _buildVitalsList(String patientId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('vitals')
+          .where('patientId', isEqualTo: patientId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No vitals found'));
+        }
+
+        // Convert Firestore documents to Vitals objects
+        final vitals = snapshot.data!.docs.map((doc) {
+          return Vitals.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        }).toList();
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: vitals.map((vital) {
+              return Column(
+                children: [
+                  VitalsListItem(
+                    bloodPressure: vital.bloodPressure,
+                    heartRate: vital.heartRate,
+                    recordedAt: vital.createdAt,
+                  ),
+                  const Divider(height: 1),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  // Fetch and display tasks for the patient
+  Widget _buildTasksList(String patientId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('tasks')
+          .where('patientId', isEqualTo: patientId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No tasks found'));
+        }
+
+        // Convert Firestore documents to Task objects
+        final tasks = snapshot.data!.docs.map((doc) {
+          return Task.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        }).toList();
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: tasks.map((task) {
+              return Column(
+                children: [
+                  TaskListItem(
+                    icon: Icons.timer,
+                    iconColor: Colors.red,
+                    title: task.title,
+                    subtitle: 'Due at ${task.dueDate}',
+                  ),
+                  const Divider(height: 1),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  // Fetch and display medications for the patient
+  Widget _buildMedicationList(String patientId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('medications')
+          .where('patientId', isEqualTo: patientId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No medications found'));
+        }
+
+        // Convert Firestore documents to Medication objects
+        final medications = snapshot.data!.docs.map((doc) {
+          return Medication.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        }).toList();
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: medications.map((medication) {
+              return Column(
+                children: [
+                  MedicationListItem(
+                    icon: Icons.medication,
+                    iconColor: Colors.purple,
+                    title: medication.name,
+                    subtitle: 'Due at ${medication.dueTime}',
+                  ),
+                  const Divider(height: 1),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
