@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/patient_model.dart'; // Import the Patient model
+import '../models/patient_model.dart';
 
 class AddPatientScreen extends StatefulWidget {
   const AddPatientScreen({super.key});
@@ -11,41 +11,38 @@ class AddPatientScreen extends StatefulWidget {
 
 class _AddPatientScreenState extends State<AddPatientScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _roomNumberController = TextEditingController();
-  final _statusController = TextEditingController();
-  final _notesController = TextEditingController();
+  String _name = '';
+  String _room = '';
+  String _status = 'stable';
+  int _roomNumber = 0;
+  int _bedNumber = 0;
+  String _notes = '';
+  final List<String> _conditions = [];
+  final List<String> _allergies = [];
 
   Future<void> _savePatient() async {
     if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
       try {
-        // Parse roomNumber as an integer
-        final roomNumber = int.tryParse(_roomNumberController.text) ?? 0;
-
-        // Save patient data to Firestore
         await FirebaseFirestore.instance.collection('patients').add({
-          'name': _nameController.text,
-          'roomNumber': roomNumber,
-          'status': _statusController.text.isNotEmpty
-              ? _statusController.text
-              : 'Admitted', // Default status
-          'notes': _notesController.text, // Notes (optional)
-          'createdAt': DateTime.now(),
-          'updatedAt': DateTime.now(),
+          'name': _name,
+          'room': _room,
+          'status': _status,
+          'roomNumber': _roomNumber,
+          'bedNumber': _bedNumber,
+          'notes': _notes,
+          'conditions': _conditions,
+          'allergies': _allergies,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Patient saved successfully!')),
+          const SnackBar(content: Text('Patient saved successfully!')),
         );
 
-        // Clear the form
-        _nameController.clear();
-        _roomNumberController.clear();
-        _statusController.clear();
-        _notesController.clear();
+        Navigator.pop(context);
       } catch (e) {
-        // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to save patient: $e')),
         );
@@ -56,75 +53,186 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add Patient')),
-      body: Padding(
+      appBar: AppBar(title: const Text('Add Patient')),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Patient Name Field
+              const Text(
+                'Add New Patient',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
               TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(labelText: 'Patient Name'),
+                decoration: const InputDecoration(
+                  labelText: 'Patient Name',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter the patient name';
+                    return 'Please enter patient name';
                   }
                   return null;
                 },
+                onSaved: (value) => _name = value ?? '',
               ),
-
-              // Room Number Field
+              const SizedBox(height: 16),
               TextFormField(
-                controller: _roomNumberController,
-                decoration: InputDecoration(labelText: 'Room Number'),
-                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Room',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter the room number';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Please enter a valid room number';
+                    return 'Please enter room';
                   }
                   return null;
                 },
+                onSaved: (value) => _room = value ?? '',
               ),
-
-              // Status Field
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  border: OutlineInputBorder(),
+                ),
+                value: _status,
+                items: ['stable', 'critical', 'recovering'].map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (value) =>
+                    setState(() => _status = value ?? 'stable'),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'Room Number',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Required';
+                        }
+                        return null;
+                      },
+                      onSaved: (value) =>
+                          _roomNumber = int.tryParse(value ?? '') ?? 0,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'Bed Number',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Required';
+                        }
+                        return null;
+                      },
+                      onSaved: (value) =>
+                          _bedNumber = int.tryParse(value ?? '') ?? 0,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               TextFormField(
-                controller: _statusController,
-                decoration: InputDecoration(
-                    labelText: 'Status (e.g., Admitted, Post-surgery)'),
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onSaved: (value) => _notes = value ?? '',
               ),
-
-              // Notes Field
-              TextFormField(
-                controller: _notesController,
-                decoration:
-                    InputDecoration(labelText: 'Notes (e.g., BP 150/90)'),
+              const SizedBox(height: 16),
+              const Text(
+                'Conditions:',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-
-              SizedBox(height: 20),
-
-              // Save Button
-              ElevatedButton(
-                onPressed: _savePatient,
-                child: Text('Save Patient'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  'Hypertension',
+                  'Diabetes',
+                  'Heart Disease',
+                  'Respiratory Issues',
+                  'Other',
+                ].map((condition) {
+                  final isSelected = _conditions.contains(condition);
+                  return FilterChip(
+                    label: Text(condition),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _conditions.add(condition);
+                        } else {
+                          _conditions.remove(condition);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Allergies:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  'Penicillin',
+                  'Latex',
+                  'Food Allergies',
+                  'None',
+                ].map((allergy) {
+                  final isSelected = _allergies.contains(allergy);
+                  return FilterChip(
+                    label: Text(allergy),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _allergies.add(allergy);
+                        } else {
+                          _allergies.remove(allergy);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _savePatient,
+                  child: const Text('Save Patient'),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _roomNumberController.dispose();
-    _statusController.dispose();
-    _notesController.dispose();
-    super.dispose();
   }
 }

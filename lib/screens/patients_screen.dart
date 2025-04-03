@@ -1,105 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:smartnurse/screens/add_patient_screen.dart';
-import '../models/patient_model.dart'; // Import the Patient model
-import '../widgets/patient_list_item.dart'; // Import the PatientListItem widget
+import '../models/patient_model.dart';
+import '../widgets/patient_list_item.dart';
 
 class PatientsScreen extends StatelessWidget {
-  const PatientsScreen({super.key});
+  final String nurseId;
+
+  const PatientsScreen({
+    Key? key,
+    required this.nurseId,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Patients'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade800, Colors.teal.shade400],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.white),
-            onPressed: () {
-              // Handle search functionality
-            },
-          ),
-        ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.grey.shade100, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('patients').snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return Center(child: Text('No patients found'));
-            }
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('patients')
+            .where('assignedNurseId', isEqualTo: nurseId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            // Convert Firestore documents to Patient objects
-            final patients = snapshot.data!.docs.map((doc) {
-              return Patient.fromMap(
-                  doc.data() as Map<String, dynamic>, doc.id);
-            }).toList();
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
 
-            // Display the list of patients
-            return ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: patients.length,
-              itemBuilder: (context, index) {
-                final patient = patients[index];
-                return PatientListItem(
-                  initials: patient.name.substring(0, 2).toUpperCase(),
-                  backgroundColor: _getColorForInitials(patient.name),
-                  name: patient.name,
-                  details:
-                      'Room ${patient.roomNumber} • ${patient.status} • ${patient.notes}',
-                  patientId: patient.id, // Pass the patientId
-                );
-              },
-            );
-          },
-        ),
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('No patients found'));
+          }
+
+          final patients = snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return Patient.fromMap(data, doc.id);
+          }).toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
+
+          return ListView.builder(
+            itemCount: patients.length,
+            itemBuilder: (context, index) {
+              final patient = patients[index];
+              return PatientListItem(
+                patient: patient,
+                onTap: () => _handlePatientTap(context, patient),
+              );
+            },
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigate to add patient screen
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => AddPatientScreen()),
+          // TODO: Implement add patient functionality
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Add patient functionality coming soon')),
           );
         },
-        backgroundColor: Colors.blue.shade800,
-        child: const Icon(Icons.person_add, color: Colors.white),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  // Helper function to generate a color based on patient initials
-  Color _getColorForInitials(String name) {
-    final colors = [
-      Colors.red,
-      Colors.orange,
-      Colors.blue,
-      Colors.green,
-      Colors.purple,
-    ];
-    final index = name.codeUnitAt(0) % colors.length;
-    return colors[index];
+  void _handlePatientTap(BuildContext context, Patient patient) {
+    // TODO: Implement patient details view
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Viewing details for ${patient.name}')),
+    );
   }
 }

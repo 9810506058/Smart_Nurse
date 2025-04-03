@@ -5,6 +5,23 @@ allprojects {
     }
 }
 
+allprojects {
+    plugins.withId("com.android.library") {
+        configure<com.android.build.gradle.LibraryExtension> {
+            buildFeatures {
+                buildConfig = true
+            }
+        }
+    }
+    plugins.withId("com.android.application") {
+        configure<com.android.build.gradle.internal.dsl.BaseAppModuleExtension> {
+            buildFeatures {
+                buildConfig = true
+            }
+        }
+    }
+}
+
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 

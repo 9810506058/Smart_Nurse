@@ -1,7 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart';
+import 'package:smartnurse/screens/dashboard_screen_updated.dart';
 import 'patients_screen.dart';
-import 'tasks_screen.dart';
+import 'task_screen.dart';
 import 'medications_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/floating_action_button.dart';
@@ -15,14 +16,24 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final String nurseId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String nurseName = FirebaseAuth.instance.currentUser?.displayName ?? '';
+  late final List<Widget> _pages;
 
-  final List<Widget> _pages = [
-    const DashboardScreen(),
-    const PatientsScreen(),
-    const TasksScreen(),
-    const MedicationsScreen(),
-    const ProfileScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      DashboardScreenUpdated(
+        nurseId: nurseId,
+        nurseName: nurseName,
+      ),
+      PatientsScreen(nurseId: nurseId),
+      const TaskScreen(),
+      const MedicationsScreen(),
+      ProfileScreen(nurseId: nurseId),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {

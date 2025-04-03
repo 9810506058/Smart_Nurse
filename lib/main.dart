@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
-import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:smartnurse/screens/dashboard_screen_updated.dart';
+import 'screens/login_screen.dart';
+import 'screens/nurse_dashboard.dart';
+import 'screens/supervisor_dashboard.dart';
+import 'screens/profile_screen.dart';
+import 'services/nurse_service.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const NursePatientManagementApp());
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  // Sign out any existing user to show login screen
+  await FirebaseAuth.instance.signOut();
+  runApp(const MyApp());
 }
 
-class NursePatientManagementApp extends StatelessWidget {
-  const NursePatientManagementApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -18,37 +28,66 @@ class NursePatientManagementApp extends StatelessWidget {
       title: 'Smart Nurse',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        colorScheme: ColorScheme.light(
-          primary: Colors.blue.shade800, // Dark blue for primary
-          secondary: Colors.teal.shade400, // Teal for accents
-          surface: Colors.grey.shade100, // Light grey background
-        ),
-        fontFamily: 'Poppins', // Modern font
-        textTheme: const TextTheme(
-          headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-          bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
-        ),
-        cardTheme: CardTheme(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        appBarTheme: AppBarTheme(
-          elevation: 0,
-          centerTitle: true,
-          backgroundColor: Colors.blue.shade800,
-          titleTextStyle: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
+        useMaterial3: true,
       ),
-      home: const HomeScreen(),
-      debugShowCheckedModeBanner: false,
+      home: const AuthWrapper(),
+      routes: {
+        '/profile': (context) => ProfileScreen(
+              nurseId: ModalRoute.of(context)!.settings.arguments as String,
+            ),
+      },
     );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const LoginScreen();
+        }
+
+        return FutureBuilder<String?>(
+          future: _getUserRole(snapshot.data!.uid),
+          builder: (context, roleSnapshot) {
+            if (roleSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (roleSnapshot.hasError) {
+              return Center(child: Text('Error: ${roleSnapshot.error}'));
+            }
+
+            final role = roleSnapshot.data;
+            if (role == null) {
+              return const LoginScreen();
+            }
+
+            if (role == 'supervisor') {
+              return const SupervisorDashboard();
+            } else {
+              return DashboardScreenUpdated(
+                  nurseId: snapshot.data!.uid,
+                  nurseName: snapshot.data!.displayName ?? '');
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Future<String?> _getUserRole(String userId) async {
+    final nurseService = NurseService();
+    final nurse = await nurseService.getNurseByUserId(userId);
+    return nurse?.role;
   }
 }

@@ -6,7 +6,7 @@ void main() {
     WidgetTester tester,
   ) async {
     // Load the app
-    await tester.pumpWidget(NursePatientManagementApp());
+    await tester.pumpWidget(MyApp());
 
     // Verify "Nurse Dashboard" is displayed
     expect(find.text('Nurse Dashboard'), findsOneWidget);

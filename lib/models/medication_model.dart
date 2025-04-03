@@ -1,8 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Medication {
   final String id;
   final String name;
   final String dosage;
-  final String patientId; // Link to a patient
+  final String patientId;
+// Link to a patient
   final DateTime dueTime;
   final bool isAdministered;
   final DateTime createdAt;
@@ -22,13 +25,13 @@ class Medication {
   factory Medication.fromMap(Map<String, dynamic> data, String id) {
     return Medication(
       id: id,
-      name: data['name'],
-      dosage: data['dosage'],
-      patientId: data['patientId'],
-      dueTime: data['dueTime'].toDate(),
-      isAdministered: data['isAdministered'],
-      createdAt: data['createdAt'].toDate(),
-      updatedAt: data['updatedAt'].toDate(),
+      name: data['name'] ?? 'Unknown Medication',
+      dosage: data['dosage'] ?? 'No dosage specified',
+      patientId: data['patientId'] ?? '',
+      dueTime: (data['dueTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isAdministered: data['isAdministered'] ?? false,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }
