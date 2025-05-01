@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/nurse_model.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -10,11 +11,39 @@ class ProfileScreen extends StatelessWidget {
     required this.nurseId,
   }) : super(key: key);
 
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error signing out: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _signOut(context),
+            tooltip: 'Logout',
+          ),
+        ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
@@ -35,6 +64,8 @@ class ProfileScreen extends StatelessWidget {
           }
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
+          final user = FirebaseAuth.instance.currentUser;
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -59,7 +90,7 @@ class ProfileScreen extends StatelessWidget {
                   title: 'Personal Information',
                   children: [
                     _buildInfoRow('Name', data['name'] ?? 'Not set'),
-                    _buildInfoRow('Email', data['email'] ?? 'Not set'),
+                    _buildInfoRow('Email', user?.email ?? 'Not set'),
                     _buildInfoRow('Phone', data['phone'] ?? 'Not set'),
                     _buildInfoRow('Role', data['role'] ?? 'Not set'),
                   ],
@@ -75,6 +106,20 @@ class ProfileScreen extends StatelessWidget {
                     _buildInfoRow(
                         'Experience', '${data['experience'] ?? '0'} years'),
                   ],
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _signOut(context),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Logout'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

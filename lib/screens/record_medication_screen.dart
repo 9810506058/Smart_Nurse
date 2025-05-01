@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
-import '../models/medication_model.dart';
-import '../models/patient_model.dart';
 
 class RecordMedicationScreen extends StatefulWidget {
-  const RecordMedicationScreen({super.key});
+  final String patientId;
+  final String patientName;
+
+  const RecordMedicationScreen({
+    super.key,
+    required this.patientId,
+    required this.patientName,
+  });
 
   @override
   _RecordMedicationScreenState createState() => _RecordMedicationScreenState();
@@ -13,99 +17,59 @@ class RecordMedicationScreen extends StatefulWidget {
 
 class _RecordMedicationScreenState extends State<RecordMedicationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _medicationController = TextEditingController();
   final _dosageController = TextEditingController();
-  DateTime? _dueTime;
-  String? _selectedPatientId;
-  List<Patient> _patients = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchPatients();
-  }
-
-  Future<void> _fetchPatients() async {
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('patients').get();
-      setState(() {
-        _patients = snapshot.docs.map((doc) {
-          return Patient.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-        }).toList();
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching patients: $e')),
-      );
-    }
-  }
+  final _frequencyController = TextEditingController();
+  final _routeController = TextEditingController();
+  final _notesController = TextEditingController();
+  DateTime _scheduledTime = DateTime.now();
 
   Future<void> _saveMedication() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_dueTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a due time')),
-      );
-      return;
-    }
-    if (_selectedPatientId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a patient')),
-      );
-      return;
-    }
+    if (_formKey.currentState!.validate()) {
+      try {
+        await FirebaseFirestore.instance
+            .collection(
+                'medications') // Save directly to the medications collection
+            .add({
+          'name': _medicationController.text,
+          'dosage': _dosageController.text,
+          'patientId': widget.patientId,
+          'dueTime': _scheduledTime,
+          'isAdministered': false, // Default to false
+          'administeredAt': null, // Not administered yet
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
 
-    try {
-      final medication = Medication(
-        id: '',
-        name: _nameController.text.trim(),
-        dosage: _dosageController.text.trim(),
-        patientId: _selectedPatientId!,
-        dueTime: _dueTime!,
-        isAdministered: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      DocumentReference docRef =
-          await FirebaseFirestore.instance.collection('medications').add({
-        'name': medication.name,
-        'dosage': medication.dosage,
-        'patientId': medication.patientId,
-        'dueTime': medication.dueTime,
-        'isAdministered': medication.isAdministered,
-        'createdAt': medication.createdAt,
-        'updatedAt': medication.updatedAt,
-      });
-
-      await docRef.update({'id': docRef.id});
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Medication saved successfully!')),
-      );
-
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save medication: $e')),
-      );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Medication recorded successfully!')),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to record medication: $e')),
+          );
+        }
+      }
     }
   }
 
-  Future<void> _selectDueTime(BuildContext context) async {
-    final pickedTime = await showTimePicker(
+  Future<void> _selectTime() async {
+    final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: TimeOfDay.fromDateTime(_scheduledTime),
     );
-    if (pickedTime != null) {
+    if (picked != null && picked != TimeOfDay.fromDateTime(_scheduledTime)) {
       setState(() {
-        _dueTime = DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day,
-          pickedTime.hour,
-          pickedTime.minute,
+        _scheduledTime = DateTime(
+          _scheduledTime.year,
+          _scheduledTime.month,
+          _scheduledTime.day,
+          picked.hour,
+          picked.minute,
         );
       });
     }
@@ -114,78 +78,95 @@ class _RecordMedicationScreenState extends State<RecordMedicationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Record Medication')),
-      body: Padding(
+      appBar: AppBar(
+        title: Text('Record Medication - ${widget.patientName}'),
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Medication Name'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter the medication name';
-                  }
-                  return null;
-                },
-              ),
-              TextFormField(
-                controller: _dosageController,
-                decoration: const InputDecoration(labelText: 'Dosage'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter the dosage';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: _selectedPatientId,
-                decoration: const InputDecoration(labelText: 'Select Patient'),
-                items: _patients.isEmpty
-                    ? [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('No patients available'),
-                        )
-                      ]
-                    : _patients.map((patient) {
-                        return DropdownMenuItem(
-                          value: patient.id,
-                          child: Text(patient.name),
-                        );
-                      }).toList(),
-                onChanged: _patients.isEmpty
-                    ? null
-                    : (value) {
-                        setState(() {
-                          _selectedPatientId = value;
-                        });
-                      },
+                controller: _medicationController,
+                decoration: const InputDecoration(
+                  labelText: 'Medication Name',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please select a patient';
+                    return 'Please enter medication name';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _dosageController,
+                decoration: const InputDecoration(
+                  labelText: 'Dosage',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter dosage';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _frequencyController,
+                decoration: const InputDecoration(
+                  labelText: 'Frequency',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter frequency';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _routeController,
+                decoration: const InputDecoration(
+                  labelText: 'Route',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter route';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
               ListTile(
-                title: Text(
-                  _dueTime == null
-                      ? 'Select Due Time'
-                      : 'Due Time: ${DateFormat('hh:mm a').format(_dueTime!)}',
+                title: const Text('Scheduled Time'),
+                subtitle: Text(
+                  '${_scheduledTime.hour.toString().padLeft(2, '0')}:${_scheduledTime.minute.toString().padLeft(2, '0')}',
                 ),
                 trailing: const Icon(Icons.access_time),
-                onTap: () => _selectDueTime(context),
+                onTap: _selectTime,
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _saveMedication,
-                child: const Text('Save Medication'),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 24),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _saveMedication,
+                  child: const Text('Save Medication'),
+                ),
               ),
             ],
           ),
@@ -196,8 +177,11 @@ class _RecordMedicationScreenState extends State<RecordMedicationScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _medicationController.dispose();
     _dosageController.dispose();
+    _frequencyController.dispose();
+    _routeController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 }

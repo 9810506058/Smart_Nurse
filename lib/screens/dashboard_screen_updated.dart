@@ -50,7 +50,7 @@ class DashboardScreenUpdated extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: CustomFloatingActionButton(),
+      floatingActionButton: CustomFloatingActionButton(nurseId: nurseId),
       body: RefreshIndicator(
         onRefresh: () async {
           // Force refresh of Firestore streams
@@ -299,12 +299,37 @@ class DashboardScreenUpdated extends StatelessWidget {
                 Icon(Icons.waving_hand,
                     color: Theme.of(context).colorScheme.primary, size: 28),
                 const SizedBox(width: 8),
-                Text(
-                  '$greeting, $nurseName',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('nurses')
+                      .doc(nurseId)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const CircularProgressIndicator();
+                    }
+                    if (snapshot.hasError) {
+                      return Text(
+                        '$greeting, Nurse',
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                      );
+                    }
+                    final nurseName = snapshot.data?.get('name') ?? 'Nurse';
+                    return Text(
+                      '$greeting, $nurseName',
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                    );
+                  },
                 ),
               ],
             ),

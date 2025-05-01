@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/vitals_model.dart'; // Import the Vitals model
+import '../models/vitals_model.dart';
 
 class RecordVitalsScreen extends StatefulWidget {
-  final String patientId; // Add patientId parameter
+  final String patientId;
+  final String patientName;
 
-  const RecordVitalsScreen({super.key, required this.patientId});
+  const RecordVitalsScreen({
+    super.key,
+    required this.patientId,
+    required this.patientName,
+  });
 
   @override
   _RecordVitalsScreenState createState() => _RecordVitalsScreenState();
@@ -14,36 +19,35 @@ class RecordVitalsScreen extends StatefulWidget {
 class _RecordVitalsScreenState extends State<RecordVitalsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _bloodPressureController = TextEditingController();
-  final _weightController = TextEditingController();
-  final _temperatureController = TextEditingController();
   final _heartRateController = TextEditingController();
+  final _temperatureController = TextEditingController();
+  final _weightController = TextEditingController();
 
   Future<void> _saveVitals() async {
     if (_formKey.currentState!.validate()) {
       try {
-        // Save vitals data to Firestore
+        // Create a new vitals record in the main vitals collection
         await FirebaseFirestore.instance.collection('vitals').add({
-          'patientId': widget.patientId, // Use the patientId
+          'patientId': widget.patientId,
           'bloodPressure': _bloodPressureController.text,
           'heartRate': _heartRateController.text,
-          'weight': _weightController.text,
           'temperature': _temperatureController.text,
-          'createdAt': DateTime.now(),
+          'weight': _weightController.text,
+          'createdAt': FieldValue.serverTimestamp(),
         });
 
-        // Show success message
+        if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Vitals saved successfully!')),
-        );
-
-        // Clear the form
-        _bloodPressureController.clear();
-        _heartRateController.clear();
+            const SnackBar(content: Text('Vitals recorded successfully!')),
+          );
+          Navigator.pop(context);
+        }
       } catch (e) {
-        // Show error message
+        if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save vitals: $e')),
+            SnackBar(content: Text('Failed to record vitals: $e')),
         );
+        }
       }
     }
   }
@@ -51,67 +55,84 @@ class _RecordVitalsScreenState extends State<RecordVitalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Record Vitals')),
-      body: Padding(
+      appBar: AppBar(
+        title: Text('Record Vitals - ${widget.patientName}'),
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Blood Pressure Field
               TextFormField(
                 controller: _bloodPressureController,
-                decoration: InputDecoration(labelText: 'Blood Pressure'),
+                decoration: const InputDecoration(
+                  labelText: 'Blood Pressure',
+                  hintText: 'e.g., 120/80',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter the blood pressure';
+                    return 'Please enter blood pressure';
                   }
                   return null;
                 },
               ),
-
-              // Heart Rate Field
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _heartRateController,
-                decoration: InputDecoration(labelText: 'Heart Rate'),
+                decoration: const InputDecoration(
+                  labelText: 'Heart Rate (bpm)',
+                  hintText: 'e.g., 72',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter the heart rate';
+                    return 'Please enter heart rate';
                   }
                   return null;
                 },
               ),
-
-              // Weight Field
-              TextFormField(
-                controller: _weightController,
-                decoration: InputDecoration(labelText: 'Weight'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter the weight';
-                  }
-                  return null;
-                },
-              ),
-
-              // Temperature Field
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _temperatureController,
-                decoration: InputDecoration(labelText: 'Temperature'),
+                decoration: const InputDecoration(
+                  labelText: 'Temperature (°C)',
+                  hintText: 'e.g., 37.0',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter the temperature';
+                    return 'Please enter temperature';
                   }
                   return null;
                 },
               ),
-
-              SizedBox(height: 20),
-
-              // Save Button
-              ElevatedButton(
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _weightController,
+                decoration: const InputDecoration(
+                  labelText: 'Weight (kg)',
+                  hintText: 'e.g., 70',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter weight';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              Center(
+                child: ElevatedButton(
                 onPressed: _saveVitals,
-                child: Text('Save Vitals'),
+                  child: const Text('Save Vitals'),
+                ),
               ),
             ],
           ),
@@ -124,6 +145,8 @@ class _RecordVitalsScreenState extends State<RecordVitalsScreen> {
   void dispose() {
     _bloodPressureController.dispose();
     _heartRateController.dispose();
+    _temperatureController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 }

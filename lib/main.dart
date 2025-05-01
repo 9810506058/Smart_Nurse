@@ -14,8 +14,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Sign out any existing user to show login screen
-  await FirebaseAuth.instance.signOut();
   runApp(const MyApp());
 }
 
@@ -30,11 +28,14 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      home: const AuthWrapper(),
+      initialRoute: '/',
       routes: {
+        '/': (context) => const AuthWrapper(),
+        '/login': (context) => const LoginScreen(),
         '/profile': (context) => ProfileScreen(
               nurseId: ModalRoute.of(context)!.settings.arguments as String,
             ),
+        '/supervisor_dashboard': (context) => const SupervisorDashboard(),
       },
     );
   }
@@ -49,7 +50,9 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         if (!snapshot.hasData || snapshot.data == null) {
@@ -60,15 +63,34 @@ class AuthWrapper extends StatelessWidget {
           future: _getUserRole(snapshot.data!.uid),
           builder: (context, roleSnapshot) {
             if (roleSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
 
             if (roleSnapshot.hasError) {
-              return Center(child: Text('Error: ${roleSnapshot.error}'));
+              return Scaffold(
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Error: ${roleSnapshot.error}'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          FirebaseAuth.instance.signOut();
+                        },
+                        child: const Text('Logout'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             }
 
             final role = roleSnapshot.data;
             if (role == null) {
+              FirebaseAuth.instance.signOut();
               return const LoginScreen();
             }
 
@@ -76,8 +98,9 @@ class AuthWrapper extends StatelessWidget {
               return const SupervisorDashboard();
             } else {
               return DashboardScreenUpdated(
-                  nurseId: snapshot.data!.uid,
-                  nurseName: snapshot.data!.displayName ?? '');
+                nurseId: snapshot.data!.uid,
+                nurseName: snapshot.data!.displayName ?? '',
+              );
             }
           },
         );
@@ -86,8 +109,13 @@ class AuthWrapper extends StatelessWidget {
   }
 
   Future<String?> _getUserRole(String userId) async {
-    final nurseService = NurseService();
-    final nurse = await nurseService.getNurseByUserId(userId);
-    return nurse?.role;
+    try {
+      final nurseService = NurseService();
+      final nurse = await nurseService.getNurseByUserId(userId);
+      return nurse?.role;
+    } catch (e) {
+      debugPrint('Error getting user role: $e');
+      return null;
+    }
   }
 }

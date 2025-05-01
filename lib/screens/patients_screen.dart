@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/patient_model.dart';
 import '../widgets/patient_list_item.dart';
+import 'patient_details_screen.dart';
+import 'add_patient_screen.dart';
 
 class PatientsScreen extends StatelessWidget {
   final String nurseId;
@@ -55,10 +57,11 @@ class PatientsScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Implement add patient functionality
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Add patient functionality coming soon')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddPatientScreen(),
+            ),
           );
         },
         child: const Icon(Icons.add),
@@ -67,9 +70,11 @@ class PatientsScreen extends StatelessWidget {
   }
 
   void _handlePatientTap(BuildContext context, Patient patient) {
-    // TODO: Implement patient details view
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Viewing details for ${patient.name}')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PatientDetailsScreen(patient: patient),
+      ),
     );
   }
 }

@@ -15,6 +15,7 @@ class SupervisorDashboard extends StatefulWidget {
 class _SupervisorDashboardState extends State<SupervisorDashboard> {
   final NurseService _nurseService = NurseService();
   final TaskService _taskService = TaskService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -290,10 +291,10 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
   }
 
   Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
+    switch (status) {
       case 'pending':
         return Colors.orange;
-      case 'inprogress':
+      case 'inProgress':
         return Colors.blue;
       case 'completed':
         return Colors.green;
@@ -1203,9 +1204,9 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
               ),
               const SizedBox(height: 16),
               StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
+                stream: _firestore
                     .collection('patients')
-                    .where('assignedNurseId', isNull: true)
+                    .where('assignedNurseId', isEqualTo: null)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1252,7 +1253,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                                 icon: const Icon(Icons.assignment_turned_in),
                                 onPressed: () async {
                                   try {
-                                    await FirebaseFirestore.instance
+                                    await _firestore
                                         .collection('patients')
                                         .doc(patientDoc.id)
                                         .update({
@@ -1260,6 +1261,12 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                                       'assignedAt':
                                           FieldValue.serverTimestamp(),
                                     });
+
+                                    // Update nurse's workload
+                                    await _nurseService.updateNurseWorkload(
+                                      nurse.id,
+                                      nurse.currentWorkload + 1,
+                                    );
 
                                     if (mounted) {
                                       Navigator.pop(context);
@@ -1442,11 +1449,13 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                         label: Text(condition),
                         selected: isSelected,
                         onSelected: (selected) {
-                          if (selected) {
-                            conditions.add(condition);
-                          } else {
-                            conditions.remove(condition);
-                          }
+                          setState(() {
+                            if (selected) {
+                              conditions.add(condition);
+                            } else {
+                              conditions.remove(condition);
+                            }
+                          });
                         },
                       );
                     }).toList(),
@@ -1470,11 +1479,13 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                         label: Text(allergy),
                         selected: isSelected,
                         onSelected: (selected) {
-                          if (selected) {
-                            allergies.add(allergy);
-                          } else {
-                            allergies.remove(allergy);
-                          }
+                          setState(() {
+                            if (selected) {
+                              allergies.add(allergy);
+                            } else {
+                              allergies.remove(allergy);
+                            }
+                          });
                         },
                       );
                     }).toList(),
@@ -1493,9 +1504,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                           if (formKey.currentState!.validate()) {
                             formKey.currentState!.save();
                             try {
-                              await FirebaseFirestore.instance
-                                  .collection('patients')
-                                  .add({
+                              await _firestore.collection('patients').add({
                                 'name': name,
                                 'room': room,
                                 'status': status,
@@ -1504,6 +1513,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                                 'notes': notes,
                                 'conditions': conditions,
                                 'allergies': allergies,
+                                'assignedNurseId': null,
                                 'createdAt': FieldValue.serverTimestamp(),
                                 'updatedAt': FieldValue.serverTimestamp(),
                               });
@@ -1589,118 +1599,6 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
     );
   }
 
-  void _assignTaskToNurse(Task task) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Assign Task',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              StreamBuilder<List<Nurse>>(
-                stream: _nurseService.getNurses(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  }
-
-                  final nurses = snapshot.data ?? [];
-                  final availableNurses = nurses
-                      .where((n) =>
-                          n.currentWorkload < n.maxWorkload &&
-                          n.specializations.any(
-                              (s) => task.requiredSpecializations.contains(s)))
-                      .toList();
-
-                  if (availableNurses.isEmpty) {
-                    return const Text(
-                        'No available nurses with matching specializations');
-                  }
-
-                  return Column(
-                    children: [
-                      const Text(
-                        'Available Nurses:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 200,
-                        child: ListView.builder(
-                          itemCount: availableNurses.length,
-                          itemBuilder: (context, index) {
-                            final nurse = availableNurses[index];
-                            return ListTile(
-                              leading: CircleAvatar(child: Text(nurse.name[0])),
-                              title: Text(nurse.name),
-                              subtitle:
-                                  Text('${nurse.role} - ${nurse.shift} shift'),
-                              trailing: Text(
-                                  '${nurse.currentWorkload}/${nurse.maxWorkload}'),
-                              onTap: () async {
-                                try {
-                                  await _taskService.assignTask(
-                                      task.id, nurse.id);
-                                  await _nurseService.updateNurseWorkload(
-                                    nurse.id,
-                                    nurse.currentWorkload + 1,
-                                  );
-                                  if (mounted) {
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'Task assigned successfully')),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content:
-                                              Text('Error assigning task: $e')),
-                                    );
-                                  }
-                                }
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildPatientsTab() {
     return Padding(
       padding: const EdgeInsets.all(8),
@@ -1724,8 +1622,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream:
-                  FirebaseFirestore.instance.collection('patients').snapshots(),
+              stream: _firestore.collection('patients').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -1967,7 +1864,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                                   '${nurse.currentWorkload}/${nurse.maxWorkload}'),
                               onTap: () async {
                                 try {
-                                  await FirebaseFirestore.instance
+                                  await _firestore
                                       .collection('patients')
                                       .doc(patientId)
                                       .update({
@@ -2036,17 +1933,12 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
 
     if (confirmed == true) {
       try {
-        final patientDoc = await FirebaseFirestore.instance
-            .collection('patients')
-            .doc(patientId)
-            .get();
+        final patientDoc =
+            await _firestore.collection('patients').doc(patientId).get();
         final patientData = patientDoc.data() as Map<String, dynamic>;
         final assignedNurseId = patientData['assignedNurseId'] as String?;
 
-        await FirebaseFirestore.instance
-            .collection('patients')
-            .doc(patientId)
-            .delete();
+        await _firestore.collection('patients').doc(patientId).delete();
 
         if (assignedNurseId != null) {
           final nurse = await _nurseService.getNurseByUserId(assignedNurseId);

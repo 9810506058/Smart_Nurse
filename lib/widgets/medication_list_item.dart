@@ -8,7 +8,7 @@ class MedicationListItem extends StatelessWidget {
   final String subtitle;
   final Medication medication;
   final VoidCallback onTap;
-  final Function(bool) onAdministeredChanged;
+  final Function(bool)? onAdministeredChanged; // Make this optional
 
   const MedicationListItem({
     super.key,
@@ -18,7 +18,7 @@ class MedicationListItem extends StatelessWidget {
     required this.subtitle,
     required this.medication,
     required this.onTap,
-    required this.onAdministeredChanged,
+    this.onAdministeredChanged, // Optional callback
   });
 
   @override
@@ -43,19 +43,23 @@ class MedicationListItem extends StatelessWidget {
                 // Checkbox with label
                 InkWell(
                   onTap: () {
-                    final newValue = !medication.isAdministered;
-                    onAdministeredChanged(newValue);
+                    if (onAdministeredChanged != null) {
+                      final newValue = !medication.isAdministered;
+                      onAdministeredChanged!(newValue); // Call the callback
+                    }
                   },
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Checkbox(
                         value: medication.isAdministered,
-                        onChanged: (bool? value) {
-                          if (value != null) {
-                            onAdministeredChanged(value);
-                          }
-                        },
+                        onChanged: onAdministeredChanged == null
+                            ? null // Disable if callback is not provided
+                            : (bool? value) {
+                                if (value != null) {
+                                  onAdministeredChanged!(value);
+                                }
+                              },
                       ),
                       const SizedBox(width: 4),
                       Text(

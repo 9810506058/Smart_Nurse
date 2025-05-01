@@ -8,7 +8,8 @@ import 'profile_screen.dart';
 import '../widgets/floating_action_button.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.nurseId});
+  final String nurseId;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -73,7 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
-      floatingActionButton: const CustomFloatingActionButton(),
+      floatingActionButton: CustomFloatingActionButton(
+        nurseId: nurseId,
+      ),
     );
   }
 }
