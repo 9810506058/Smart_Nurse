@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/nurse_model.dart';
 import '../models/task_model.dart';
 import '../services/nurse_service.dart';
@@ -24,6 +25,18 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Supervisor Dashboard'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (mounted) {
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
+            ),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Tasks'),
