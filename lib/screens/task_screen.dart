@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../models/task_model.dart';
-import '../models/nurse_model.dart';
-import '../services/task_service.dart';
 import '../services/nurse_service.dart';
+import '../services/task_service.dart';
 import '../widgets/task_list_item.dart';
 
 class TaskScreen extends StatefulWidget {
