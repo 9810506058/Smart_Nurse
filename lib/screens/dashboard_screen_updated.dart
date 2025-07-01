@@ -94,7 +94,21 @@ class DashboardScreenUpdated extends StatelessWidget {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No upcoming tasks'));
+          return Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  'No upcoming tasks assigned',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ),
+          );
         }
 
         final tasks = snapshot.data!.docs
@@ -106,6 +120,24 @@ class DashboardScreenUpdated extends StatelessWidget {
             .where((task) => task.status != 'completed')
             .toList()
           ..sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+
+        if (tasks.isEmpty) {
+          return Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  'No upcoming tasks assigned',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ),
+          );
+        }
 
         return Card(
           elevation: 4,

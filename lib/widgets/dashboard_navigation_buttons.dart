@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smartnurse/screens/CriticalPatientsScreen.dart';
 import '../screens/medications_screen.dart';
 import '../screens/patients_screen.dart';
 import '../screens/tasks_screen.dart';
@@ -61,7 +62,12 @@ class DashboardNavigationButtons extends StatelessWidget {
           icon: Icons.warning,
           title: 'Critical',
           color: Colors.red,
-          onTap: () => _scrollToSection(context, 'critical'),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CriticalPatientsScreen(nurseId: nurseId),
+            ),
+          ),
         ),
       ],
     );

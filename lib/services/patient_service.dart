@@ -44,7 +44,8 @@ class PatientService {
   }
 
   // Update patient
-  Future<void> updatePatient(String patientId, Map<String, dynamic> data) async {
+  Future<void> updatePatient(
+      String patientId, Map<String, dynamic> data) async {
     await _patientsCollection.doc(patientId).update({
       ...data,
       'updatedAt': FieldValue.serverTimestamp(),
