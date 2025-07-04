@@ -14,13 +14,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
-
   bool _isRegistering = false;
   bool _isLoading = false;
   String _selectedRole = 'nurse';
   String _selectedShift = 'day';
   final List<String> _selectedSpecializations = [];
-
   final List<String> _availableSpecializations = [
     'General Care',
     'Critical Care',
@@ -38,21 +36,102 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Enhanced validation methods
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Email is required';
+    }
+
+    RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$');
+    if (!emailRegex.hasMatch(value)) {
+      return 'Enter a valid email address';
+    }
+
+    if (value.length > 254) {
+      return 'Email address is too long';
+    }
+    if (value.contains(RegExp(r'[^\w\s\.-@]'))) {
+      return 'Email contains invalid characters';
+    }
+
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!RegExp(r'\d').hasMatch(value)) {
+      return 'Password must contain at least one number';
+    }
+    if (!RegExp(r'[!@#%^&*(),.?":{}|<>]').hasMatch(value)) {
+      return 'Password must contain at least one special character';
+    }
+
+    return null;
+  }
+
+  String? _validateName(String? value) {
+    if (_isRegistering && (value == null || value.isEmpty)) {
+      return 'Full name is required';
+    }
+
+    if (_isRegistering && value != null) {
+      if (value.trim().split(' ').length < 2) {
+        return 'Please enter both first and last name';
+      }
+
+      // ✅ Corrected regex pattern using double quotes for raw string
+      RegExp nameRegex = RegExp(r"^[\w\s'\-]{2,}$");
+      if (!nameRegex.hasMatch(value)) {
+        return 'Invalid name format';
+      }
+
+      if (value.length > 50) {
+        return 'Name is too long';
+      }
+    }
+
+    return null;
+  }
+
+  bool _validateSpecializations() {
+    if (_selectedSpecializations.isEmpty) {
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_isRegistering && !_validateSpecializations()) {
+      _showErrorMessage('Please select at least one specialization');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
       if (_isRegistering) {
-        // Create user account
         final userCredential =
             await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
-        // Create nurse profile
         await NurseService().createNurse(
           userId: userCredential.user!.uid,
           name: _nameController.text.trim(),
@@ -62,27 +141,20 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (!mounted) return;
-
-        // Show success and navigate to appropriate dashboard
         _showSuccessMessage('Account created successfully!');
         _navigateToDashboard();
       } else {
-        // Sign in existing user
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
         if (!mounted) return;
-
-        // Navigate directly to dashboard without showing success message
         _navigateToDashboard();
       }
     } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
       _showErrorMessage(_getErrorMessage(e.code));
     } catch (e) {
-      if (!mounted) return;
       _showErrorMessage('An unexpected error occurred. Please try again.');
     } finally {
       if (mounted) {
@@ -126,39 +198,16 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'invalid-email':
         return 'Please enter a valid email address';
       case 'weak-password':
-        return 'Password should be at least 6 characters';
+        return 'Password must be at least 8 characters';
       case 'too-many-requests':
         return 'Too many attempts. Please try again later';
+      case 'network-request-failed':
+        return 'Network request failed. Check your connection.';
+      case 'operation-not-allowed':
+        return 'Email/password authentication is not enabled.';
       default:
         return 'Login failed. Please try again';
     }
-  }
-
-  String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Email is required';
-    }
-    if (!value.contains('@') || !value.contains('.')) {
-      return 'Enter a valid email address';
-    }
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
-  }
-
-  String? _validateName(String? value) {
-    if (_isRegistering && (value == null || value.isEmpty)) {
-      return 'Full name is required';
-    }
-    return null;
   }
 
   @override
@@ -320,7 +369,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                    Colors.white,
+                                  ),
                                 ),
                               )
                             : Text(_isRegistering ? 'Register' : 'Sign In'),

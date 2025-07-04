@@ -622,9 +622,9 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
-                    onPressed: _createNewPatient,
+                    onPressed: () {},
                     icon: const Icon(Icons.person_add),
-                    tooltip: 'Add Patient',
+                    tooltip: 'Add Nurse',
                   ),
                 ],
               ),
